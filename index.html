@@ -32,6 +32,9 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Load Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/lucide-react@latest"></script>
 
   <script src="./champions.js"></script>
   <!-- Your React component -->
@@ -119,6 +122,8 @@
         }
       };
 
+      const handleInputFocus = (e) => e.target.select();
+
       const isBansMode = node.previewMode === 'bans';
       const blueItems = isBansMode ? node.draft.blue.bans : node.draft.blue.picks;
       const redItems = isBansMode ? node.draft.red.bans : node.draft.red.picks;
@@ -163,6 +168,7 @@
               <input 
                 autoFocus
                 value={editTitle}
+                onFocus={handleInputFocus}
                 onChange={(e) => setEditTitle(e.target.value)}
                 onBlur={handleTitleSubmit}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleTitleSubmit(); }}
@@ -179,8 +185,8 @@
               </div>
             )}
             <div style={{ display: 'flex', gap: '4px' }}>
-               <button title="Duplicate" onClick={(e) => { e.stopPropagation(); onDuplicate(node.id); }} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '12px', padding: 0 }}>📋</button>
-               <button title="Delete" onClick={(e) => { e.stopPropagation(); onDelete(node.id); }} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: '12px', padding: 0 }}>🗑️</button>
+               <button title="Duplicate" onClick={(e) => { e.stopPropagation(); onDuplicate(node.id); }} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', padding: 0 }}><i data-lucide="copy" style={{width:14, height:14}}></i></button>
+               <button title="Delete" onClick={(e) => { e.stopPropagation(); onDelete(node.id); }} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', padding: 0 }}><i data-lucide="trash-2" style={{width:14, height:14}}></i></button>
             </div>
           </div>
           
@@ -660,29 +666,57 @@
 
         return (
           <div key={nodeId}>
-            <div style={{ 
-              marginLeft: depth * 20 + 'px',
-              padding: '5px',
-              backgroundColor: activeNodeId === nodeId ? '#e0e0e0' : 'transparent',
-              cursor: 'pointer',
-              marginBottom: '2px'
-            }}>
+            <div 
+              onClick={() => setActiveNodeId(nodeId)}
+              style={{ 
+                marginLeft: depth * 20 + 'px',
+                padding: '8px',
+                backgroundColor: activeNodeId === nodeId ? '#333' : 'rgba(30, 30, 30, 0.8)', // Semi-transparent bg
+                color: activeNodeId === nodeId ? '#fff' : '#ccc', // Lighter text
+                border: activeNodeId === nodeId ? '1px solid #4da3ff' : '1px solid transparent',
+                cursor: 'pointer',
+                marginBottom: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderRadius: '4px',
+                transition: 'background 0.2s, border-color 0.2s'
+              }}
+            >
               <input
                 type="text"
                 value={node.title}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => updateNodeTitle(nodeId, e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                style={{ marginRight: '10px', width: '150px' }}
+                style={{ 
+                  background: 'transparent', 
+                  border: '1px solid #444', 
+                  borderRadius: '3px',
+                  color: 'inherit', 
+                  width: '140px', // Fixed width
+                  marginRight: '10px',
+                  outline: 'none',
+                  fontSize: '13px',
+                  fontFamily: 'inherit',
+                  padding: '2px 4px'
+                }}
               />
-              <button onClick={() => setActiveNodeId(nodeId)}>View</button>
-              <button onClick={() => addChild(nodeId)}>+ Child</button>
-              <button onClick={() => duplicateNode(nodeId)}>Duplicate</button>
-              <button onClick={() => deleteNode(nodeId)}>Delete</button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button title="Add Child" onClick={(e) => { e.stopPropagation(); addChild(nodeId); }} style={{ background: 'none', border: 'none', color: '#4da3ff', cursor: 'pointer', padding:0 }}><i data-lucide="plus-circle" style={{width:14, height:14}}></i></button>
+                <button title="Delete" onClick={(e) => { e.stopPropagation(); deleteNode(nodeId); }} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', padding:0 }}><i data-lucide="trash-2" style={{width:14, height:14}}></i></button>
+              </div>
             </div>
             {node.childrenIds.map(childId => renderNode(childId, depth + 1))}
           </div>
         );
       };
+
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
 
       const activeNode = activeNodeId ? nodes[activeNodeId] : null;
 
