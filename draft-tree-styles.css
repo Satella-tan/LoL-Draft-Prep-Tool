@@ -1,0 +1,477 @@
+/* === Color Palette === */
+:root {
+  --bg-overlay: rgba(10, 14, 39, 0.85);
+  --glass-panel: rgba(26, 30, 63, 0.75);
+  --glass-hover: rgba(37, 43, 79, 0.85);
+  --glass-active: rgba(37, 43, 79, 0.95);
+  
+  --accent-purple: #b47bdb;
+  --accent-magenta: #e63b8f;
+  --accent-blue: #4a9fe2;
+  --accent-red: #e74c3c;
+  --gold: #c8aa6e;
+  
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-bright: rgba(255, 255, 255, 0.2);
+}
+
+/* === Base Styles === */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background: url('./background kat.jpg') center/cover fixed;
+  background-color: #0a0e27;
+  color: var(--text-primary);
+}
+
+/* Vignette overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Scrollbar styling */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(180, 123, 219, 0.4);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 123, 219, 0.6);
+}
+
+/* === Typography === */
+h1, h2, h3, h4, h5 {
+  color: var(--text-primary);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* === Glass Panels === */
+.glass-panel {
+  background: var(--glass-panel);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.glass-panel-dark {
+  background: rgba(15, 15, 15, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+/* === Left Panel - Tree === */
+.tree-panel {
+  background: var(--glass-panel);
+  backdrop-filter: blur(12px);
+  border-right: 1px solid var(--border-bright);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+}
+
+.tree-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: rgba(15, 15, 15, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+/* === Buttons === */
+button {
+  background: rgba(180, 123, 219, 0.2);
+  border: 1px solid rgba(180, 123, 219, 0.4);
+  color: var(--text-primary);
+  backdrop-filter: blur(8px);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: rgba(180, 123, 219, 0.4);
+  border-color: var(--accent-purple);
+  box-shadow: 0 4px 16px rgba(180, 123, 219, 0.3);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button.active {
+  background: rgba(180, 123, 219, 0.5);
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 12px rgba(180, 123, 219, 0.4);
+}
+
+/* Button variants */
+.btn-primary {
+  background: rgba(74, 159, 226, 0.3);
+  border-color: rgba(74, 159, 226, 0.5);
+}
+
+.btn-primary:hover {
+  background: rgba(74, 159, 226, 0.5);
+  border-color: var(--accent-blue);
+  box-shadow: 0 4px 16px rgba(74, 159, 226, 0.4);
+}
+
+.btn-success {
+  background: rgba(40, 167, 69, 0.3);
+  border-color: rgba(40, 167, 69, 0.5);
+}
+
+.btn-success:hover {
+  background: rgba(40, 167, 69, 0.5);
+  border-color: #28a745;
+  box-shadow: 0 4px 16px rgba(40, 167, 69, 0.4);
+}
+
+.btn-danger {
+  background: rgba(231, 76, 60, 0.2);
+  border-color: rgba(231, 76, 60, 0.4);
+  color: #ff6b6b;
+}
+
+.btn-danger:hover {
+  background: rgba(231, 76, 60, 0.4);
+  border-color: var(--accent-red);
+  box-shadow: 0 4px 16px rgba(231, 76, 60, 0.4);
+}
+
+/* === Node Cards (Tree View) === */
+.node-card {
+  background: var(--glass-panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid rgba(180, 123, 219, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.node-card:hover {
+  background: var(--glass-hover);
+  border-left-color: var(--accent-purple);
+  box-shadow: 0 6px 24px rgba(180, 123, 219, 0.2);
+  transform: translateY(-2px);
+}
+
+.node-card.active {
+  background: var(--glass-active);
+  border-left: 3px solid var(--gold);
+  box-shadow: 0 8px 32px rgba(200, 170, 110, 0.3);
+}
+
+/* === List View Nodes === */
+.list-node {
+  background: rgba(26, 30, 63, 0.6);
+  backdrop-filter: blur(8px);
+  border-left: 3px solid rgba(180, 123, 219, 0.3);
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.list-node:hover {
+  background: rgba(37, 43, 79, 0.7);
+  border-left-color: var(--accent-purple);
+}
+
+.list-node.active {
+  background: rgba(37, 43, 79, 0.85);
+  border-left-color: var(--gold);
+  box-shadow: 0 4px 16px rgba(200, 170, 110, 0.2);
+}
+
+/* === Input Fields === */
+input[type="text"],
+input[type="file"] {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 12px rgba(180, 123, 219, 0.3);
+  background: rgba(0, 0, 0, 0.7);
+}
+
+input[type="text"]::placeholder {
+  color: var(--text-muted);
+}
+
+/* === Draft Slots === */
+.draft-slot {
+  background: rgba(34, 34, 34, 0.8);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.draft-slot:hover {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 16px rgba(180, 123, 219, 0.3);
+  transform: scale(1.03);
+}
+
+.draft-slot.selected-blue {
+  border: 2px solid var(--accent-blue);
+  box-shadow: 0 0 20px rgba(74, 159, 226, 0.5);
+}
+
+.draft-slot.selected-red {
+  border: 2px solid var(--accent-red);
+  box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+}
+
+.draft-slot.empty {
+  border: 2px dashed rgba(180, 123, 219, 0.3);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* === Champion Grid === */
+.champion-portrait {
+  background: rgba(34, 34, 34, 0.8);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.champion-portrait:hover {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 16px rgba(180, 123, 219, 0.5);
+  transform: scale(1.05);
+}
+
+.champion-portrait.selected {
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 20px rgba(200, 170, 110, 0.6);
+}
+
+.champion-portrait.used {
+  opacity: 0.4;
+  filter: grayscale(100%);
+}
+
+.champion-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* === Side Indicators === */
+.blue-side {
+  background: rgba(74, 159, 226, 0.08);
+  border-top: 2px solid rgba(74, 159, 226, 0.6);
+  backdrop-filter: blur(8px);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.red-side {
+  background: rgba(231, 76, 60, 0.08);
+  border-top: 2px solid rgba(231, 76, 60, 0.6);
+  backdrop-filter: blur(8px);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.team-label-blue {
+  color: var(--accent-blue);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(74, 159, 226, 0.5);
+}
+
+.team-label-red {
+  color: var(--accent-red);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(231, 76, 60, 0.5);
+}
+
+/* === Resize Handle === */
+.resize-handle {
+  width: 6px;
+  cursor: col-resize;
+  background: linear-gradient(90deg, 
+    rgba(180, 123, 219, 0.2) 0%, 
+    rgba(180, 123, 219, 0.4) 50%, 
+    rgba(180, 123, 219, 0.2) 100%
+  );
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.resize-handle:hover {
+  background: linear-gradient(90deg, 
+    rgba(180, 123, 219, 0.4) 0%, 
+    rgba(180, 123, 219, 0.7) 50%, 
+    rgba(180, 123, 219, 0.4) 100%
+  );
+}
+
+.resize-handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 1px;
+}
+
+/* === Tree Canvas === */
+.tree-canvas {
+  background: rgba(10, 14, 39, 0.7);
+  backdrop-filter: blur(8px);
+}
+
+/* === Checkbox === */
+input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent-purple);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent-purple);
+  box-shadow: 0 0 8px rgba(180, 123, 219, 0.5);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* === Labels === */
+label {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* === Floating Info === */
+.info-overlay {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  pointer-events: none;
+  border: 1px solid var(--border-subtle);
+}
+
+/* === Animations === */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-3px); }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(180, 123, 219, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(180, 123, 219, 0.6); }
+}
+
+.glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+/* === Utility Classes === */
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-primary {
+  color: var(--text-primary);
+}

@@ -3,11 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Draft Tree MVP</title>
+  <title>Draft Prep</title>
+  <link rel="stylesheet" href="draft-tree-styles.css">
   <style>
     .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     body { margin: 0; padding: 0; overflow: hidden; }
+    /* Inline critical styles for background */
+    body {
+      background: url('./background kat.jpg') center/cover fixed;
+      background-color: #0a0e27;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.5) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    #root { position: relative; z-index: 1; }
   </style>
 </head>
 <body>
@@ -296,15 +311,33 @@
         }
       };
 
-      const renderConnections = () => {
+      const renderContent = () => {
         if (!rootNodeId) return null;
         const paths = [];
+        const cards = [];
         
         Object.keys(positions).forEach(sourceId => {
           const node = nodes[sourceId];
           if (!node) return;
           const sourcePos = positions[sourceId];
+
+          // Generate Card
+          cards.push(
+            <NodeCard 
+              key={sourceId}
+              node={node}
+              x={sourcePos.x}
+              y={sourcePos.y}
+              isActive={activeNodeId === sourceId}
+              onClick={(e) => { e.stopPropagation(); setActiveNodeId(sourceId); }}
+              onAddChild={onAddChild}
+              onDuplicate={onDuplicate}
+              onDelete={onDelete}
+              onTitleChange={onTitleChange}
+            />
+          );
           
+          // Generate Connections
           node.childrenIds.forEach(targetId => {
             const targetPos = positions[targetId];
             if (!targetPos) return;
@@ -332,7 +365,16 @@
           });
         });
 
-        return <svg style={{ position: 'absolute', top: 0, left: 0, width: bounds.width, height: bounds.height, pointerEvents: 'none', overflow: 'visible' }}>{paths}</svg>;
+        return (
+          <>
+            <svg style={{ position: 'absolute', top: 0, left: 0, width: bounds.width, height: bounds.height, overflow: 'visible', pointerEvents: 'none', zIndex: 1 }}>
+              {paths}
+            </svg>
+            <div style={{ zIndex: 2, position: 'relative' }}>
+              {cards}
+            </div>
+          </>
+        );
       };
 
       return (
@@ -345,32 +387,17 @@
             position: 'absolute', 
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, 
             transformOrigin: '0 0',
-            // Canvas needs to be big enough to hold the tree, but infinite feel is achieved by translation
             width: '100%', 
-            height: '100%'
+            height: '100%',
+            pointerEvents: 'none' // Let clicks pass through the transform wrapper
           }}>
-            {renderConnections()}
-            {Object.keys(positions).map(id => {
-               const node = nodes[id];
-               if(!node) return null;
-               return (
-                 <NodeCard 
-                   key={id}
-                   node={node}
-                   x={positions[id].x}
-                   y={positions[id].y}
-                   isActive={activeNodeId === id}
-                   onClick={(e) => { e.stopPropagation(); setActiveNodeId(id); }}
-                   onAddChild={onAddChild}
-                   onDuplicate={onDuplicate}
-                   onDelete={onDelete}
-                   onTitleChange={onTitleChange}
-                 />
-               );
-            })}
+             {/* Re-enable pointer events for actual content */}
+             <div style={{ pointerEvents: 'auto' }}>
+               {renderContent()}
+             </div>
           </div>
           <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.7)', padding: '5px', borderRadius: '4px', color: '#aaa', fontSize: '12px', pointerEvents: 'none' }}>
-            Alt+Scroll to Zoom • Dragging on the left side gets buggy Try to do it far right
+            Alt+Scroll to Zoom • Drag anywhere to Pan
           </div>
         </div>
       );
