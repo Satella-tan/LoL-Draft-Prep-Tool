@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Draft Tree MVP</title>
+  <style>
+    .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    body { margin: 0; padding: 0; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Load React, ReactDOM, and Babel from CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script src="./champions.js"></script>
+  <!-- Your React component -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const CHAMPIONS = [];
+
+    const createEmptyDraft = () => ({
+      blue: {
+        picks: ['', '', '', '', ''],
+        bans: ['', '', '', '', '']
+      },
+      red: {
+        picks: ['', '', '', '', ''],
+        bans: ['', '', '', '', '']
+      }
+    });
+
+    const createNode = (title, parentId = null, draft = null) => {
+      const id = 'node-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      return {
+        id,
+        title,
+        parentId,
+        childrenIds: [],
+        draft: draft || createEmptyDraft(),
+        previewMode: 'picks'
+      };
+    };
+
+    // --- Visual Tree Components ---
+
+    const TREE_NODE_WIDTH = 220;
+    const TREE_NODE_HEIGHT = 100;
+    const GAP_X = 40; // Horizontal gap between siblings
+    const GAP_Y = 80; // Vertical gap between depth levels
+
+    const calculateTreeLayout = (nodes, rootId) => {
+      const positions = {};
+      let nextX = 0;
+
+      const traverse = (nodeId, depth) => {
+        const node = nodes[nodeId];
+        if (!node) return { min: nextX, max: nextX };
+
+        // If leaf
+        if (!node.childrenIds || node.childrenIds.length === 0) {
+          const x = nextX;
+          positions[nodeId] = { x, y: depth * (TREE_NODE_HEIGHT + GAP_Y) };
+          nextX += TREE_NODE_WIDTH + GAP_X;
+          return { min: x, max: x };
+        }
+
+        // If parent
+        let min = Infinity;
+        let max = -Infinity;
+        node.childrenIds.forEach(childId => {
+          const res = traverse(childId, depth + 1);
+          if (res.min < min) min = res.min;
+          if (res.max > max) max = res.max;
+        });
+
+        const x = (min + max) / 2;
+        positions[nodeId] = { x, y: depth * (TREE_NODE_HEIGHT + GAP_Y) };
+        return { min, max };
+      };
+
+      if (rootId) traverse(rootId, 0);
+      return positions;
+    };
+
+    const NodeCard = ({ node, x, y, isActive, onClick, onAddChild, onDuplicate, onDelete, onTitleChange }) => {
+      const [isEditing, setIsEditing] = useState(false);
+      const [editTitle, setEditTitle] = useState(node.title);
+
+      useEffect(() => {
+        setEditTitle(node.title);
+      }, [node.title]);
+
+      const handleTitleSubmit = () => {
+        setIsEditing(false);
+        if (editTitle.trim() && editTitle !== node.title) {
+          onTitleChange(node.id, editTitle);
+        }
+      };
+
+      const isBansMode = node.previewMode === 'bans';
+      const blueItems = isBansMode ? node.draft.blue.bans : node.draft.blue.picks;
+      const redItems = isBansMode ? node.draft.red.bans : node.draft.red.picks;
+      const label = isBansMode ? 'Bans' : 'Picks';
+
+      // Helper to render tiny icons
+      const renderTinyIcons = (items, color) => (
+        <div style={{ display: 'flex', gap: '2px' }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ width: '12px', height: '12px', background: '#333', border: `1px solid ${color}`, borderRadius: '2px', overflow: 'hidden' }}>
+              {item && <img src={`https://ddragon.leagueoflegends.com/cdn/img/champion/tiles/${item.replace(' ','')}_0.jpg`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            </div>
+          ))}
+        </div>
+      );
+
+      return (
+        <div 
+          onClick={onClick}
+          style={{
+            position: 'absolute',
+            left: x,
+            top: y,
+            width: TREE_NODE_WIDTH,
+            height: TREE_NODE_HEIGHT,
+            background: isActive ? '#333' : '#1a1a1a',
+            border: isActive ? '2px solid #4da3ff' : '1px solid #444',
+            borderRadius: '8px',
+            padding: '8px',
+            boxSizing: 'border-box',
+            cursor: 'pointer',
+            zIndex: 2,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+            transition: 'border-color 0.2s'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height:'24px' }}>
+            {isEditing ? (
+              <input 
+                autoFocus
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                onBlur={handleTitleSubmit}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleTitleSubmit(); }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ background: '#000', color: 'white', border: '1px solid #4da3ff', width: '100%', fontSize: '12px', padding: '2px' }}
+              />
+            ) : (
+              <div 
+                onDoubleClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+                title="Double-click to rename"
+                style={{ fontWeight: 'bold', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#eee', maxWidth: '140px', cursor:'text' }}
+              >
+                {node.title}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '4px' }}>
+               <button title="Duplicate" onClick={(e) => { e.stopPropagation(); onDuplicate(node.id); }} style={{ background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: '12px', padding: 0 }}>📋</button>
+               <button title="Delete" onClick={(e) => { e.stopPropagation(); onDelete(node.id); }} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', fontSize: '12px', padding: 0 }}>🗑️</button>
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#888' }}>
+            <div>
+              <div style={{ marginBottom: '2px' }}>Blue {label}</div>
+              {renderTinyIcons(blueItems, '#4da3ff')}
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ marginBottom: '2px' }}>Red {label}</div>
+              {renderTinyIcons(redItems, '#ff6b6b')}
+            </div>
+          </div>
+
+          {/* Add Child Button */}
+          <div 
+            onClick={(e) => { e.stopPropagation(); onAddChild(node.id); }}
+            style={{
+              position: 'absolute',
+              bottom: '-12px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '24px',
+              height: '24px',
+              background: '#28a745',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              border: '2px solid #222',
+              zIndex: 10
+            }}
+          >
+            +
+          </div>
+        </div>
+      );
+    };
+
+    const VisualTree = ({ nodes, rootNodeId, activeNodeId, setActiveNodeId, onAddChild, onDuplicate, onDelete, onTitleChange }) => {
+      const [positions, setPositions] = useState({});
+      
+      const [pan, setPan] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('treePan')) || { x: 50, y: 50 }; } catch(e) { return { x: 50, y: 50 }; }
+      });
+      const [scale, setScale] = useState(() => {
+        try { return parseFloat(localStorage.getItem('treeScale')) || 1; } catch(e) { return 1; }
+      });
+
+      const panRef = useRef(pan);
+      const scaleRef = useRef(scale);
+
+      useEffect(() => { panRef.current = pan; }, [pan]);
+      useEffect(() => { scaleRef.current = scale; }, [scale]);
+
+      useEffect(() => {
+        return () => {
+          localStorage.setItem('treePan', JSON.stringify(panRef.current));
+          localStorage.setItem('treeScale', String(scaleRef.current));
+        };
+      }, []);
+
+      const [isDragging, setIsDragging] = useState(false);
+      const [lastMouse, setLastMouse] = useState({ x: 0, y: 0 });
+
+      // Calculate bounds for SVG size
+      const getBounds = () => {
+        let maxX = 0;
+        let maxY = 0;
+        Object.values(positions).forEach(p => {
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        });
+        return { width: maxX + TREE_NODE_WIDTH + 200, height: maxY + TREE_NODE_HEIGHT + 200 };
+      };
+
+      const bounds = getBounds();
+
+      useEffect(() => {
+        if (rootNodeId && nodes[rootNodeId]) {
+          setPositions(calculateTreeLayout(nodes, rootNodeId));
+        }
+      }, [nodes, rootNodeId]);
+
+      // Global drag handling to prevent losing focus
+      useEffect(() => {
+        const handleMouseMove = (e) => {
+          if (isDragging) {
+            const dx = e.clientX - lastMouse.x;
+            const dy = e.clientY - lastMouse.y;
+            setPan(p => ({ x: p.x + dx, y: p.y + dy }));
+            setLastMouse({ x: e.clientX, y: e.clientY });
+          }
+        };
+        const handleMouseUp = () => setIsDragging(false);
+
+        if (isDragging) {
+          window.addEventListener('mousemove', handleMouseMove);
+          window.addEventListener('mouseup', handleMouseUp);
+        }
+        return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+        };
+      }, [isDragging, lastMouse]);
+
+      const handleWheel = (e) => {
+        if (e.altKey) {
+          e.preventDefault();
+          const zoom = e.deltaY > 0 ? 0.9 : 1.1;
+          setScale(s => Math.min(2, Math.max(0.2, s * zoom)));
+        } else {
+          setPan(p => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+        }
+      };
+
+      const handleMouseDown = (e) => {
+        if (e.button === 0 || e.button === 1) { // Left or Middle
+           // Only drag if clicking background
+           if (e.target === e.currentTarget) {
+             setIsDragging(true);
+             setLastMouse({ x: e.clientX, y: e.clientY });
+           }
+        }
+      };
+
+      const renderConnections = () => {
+        if (!rootNodeId) return null;
+        const paths = [];
+        
+        Object.keys(positions).forEach(sourceId => {
+          const node = nodes[sourceId];
+          if (!node) return;
+          const sourcePos = positions[sourceId];
+          
+          node.childrenIds.forEach(targetId => {
+            const targetPos = positions[targetId];
+            if (!targetPos) return;
+
+            // Vertical Bezier Curve
+            const startX = sourcePos.x + TREE_NODE_WIDTH / 2;
+            const startY = sourcePos.y + TREE_NODE_HEIGHT;
+            const endX = targetPos.x + TREE_NODE_WIDTH / 2;
+            const endY = targetPos.y;
+            
+            const cp1x = startX;
+            const cp1y = startY + GAP_Y / 2;
+            const cp2x = endX;
+            const cp2y = endY - GAP_Y / 2;
+
+            paths.push(
+              <path
+                key={`${sourceId}-${targetId}`}
+                d={`M ${startX} ${startY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${endY}`}
+                stroke="#666"
+                strokeWidth="2"
+                fill="none"
+              />
+            );
+          });
+        });
+
+        return <svg style={{ position: 'absolute', top: 0, left: 0, width: bounds.width, height: bounds.height, pointerEvents: 'none', overflow: 'visible' }}>{paths}</svg>;
+      };
+
+      return (
+        <div 
+          style={{ width: '100%', height: '100%', overflow: 'hidden', background: '#222', position: 'relative', cursor: isDragging ? 'grabbing' : 'grab' }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+        >
+          <div style={{ 
+            position: 'absolute', 
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, 
+            transformOrigin: '0 0',
+            // Canvas needs to be big enough to hold the tree, but infinite feel is achieved by translation
+            width: '100%', 
+            height: '100%'
+          }}>
+            {renderConnections()}
+            {Object.keys(positions).map(id => {
+               const node = nodes[id];
+               if(!node) return null;
+               return (
+                 <NodeCard 
+                   key={id}
+                   node={node}
+                   x={positions[id].x}
+                   y={positions[id].y}
+                   isActive={activeNodeId === id}
+                   onClick={(e) => { e.stopPropagation(); setActiveNodeId(id); }}
+                   onAddChild={onAddChild}
+                   onDuplicate={onDuplicate}
+                   onDelete={onDelete}
+                   onTitleChange={onTitleChange}
+                 />
+               );
+            })}
+          </div>
+          <div style={{ position: 'absolute', bottom: 10, left: 10, background: 'rgba(0,0,0,0.7)', padding: '5px', borderRadius: '4px', color: '#aaa', fontSize: '12px', pointerEvents: 'none' }}>
+            Alt+Scroll to Zoom • Dragging on the left side gets buggy Try to do it far right
+          </div>
+        </div>
+      );
+    };
+
+    function DraftTreeMVP() {
+      const [nodes, setNodes] = useState({});
+      const [rootNodeId, setRootNodeId] = useState(null);
+      const [activeNodeId, setActiveNodeId] = useState(null);
+      const [champions, setChampions] = useState([]);
+      const [selectedSlot, setSelectedSlot] = useState(null);
+      const [champSearch, setChampSearch] = useState('');
+      const [selectedChampion, setSelectedChampion] = useState(null);
+      const [leftWidth, setLeftWidth] = useState(() => {
+        const saved = parseInt(localStorage.getItem('treeWidth') || '0', 10);
+        return saved || Math.round(window.innerWidth * 0.4);
+      });
+      const [isDragging, setIsDragging] = useState(false);
+      const [viewMode, setViewMode] = useState('list'); // 'list' | 'tree'
+
+      // Load from localStorage on mount
+      useEffect(() => {
+        const saved = localStorage.getItem('draftTreeState');
+        if (saved) {
+          try {
+            const state = JSON.parse(saved);
+            setNodes(state.nodes);
+            setRootNodeId(state.rootNodeId);
+            setActiveNodeId(state.activeNodeId);
+          } catch (e) {
+            console.error('Failed to load state', e);
+          }
+        }
+      }, []);
+
+      useEffect(() => {
+        const apply = () => setChampions(window.CHAMPIONS_DATA || []);
+        apply();
+        window.addEventListener('champions-ready', apply);
+        return () => window.removeEventListener('champions-ready', apply);
+      }, []);
+
+      useEffect(() => {
+        const onMove = (e) => {
+          if (!isDragging) return;
+          const min = 220;
+          const max = Math.max(320, window.innerWidth - 380);
+          const nw = Math.min(max, Math.max(min, e.clientX));
+          setLeftWidth(nw);
+        };
+        const onUp = () => setIsDragging(false);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        return () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        };
+      }, [isDragging]);
+
+      useEffect(() => {
+        localStorage.setItem('treeWidth', String(leftWidth));
+      }, [leftWidth]);
+
+      // Auto-save to localStorage
+      useEffect(() => {
+        if (rootNodeId) {
+          localStorage.setItem('draftTreeState', JSON.stringify({
+            nodes,
+            rootNodeId,
+            activeNodeId
+          }));
+        }
+      }, [nodes, rootNodeId, activeNodeId]);
+
+      const createRootNode = () => {
+        const root = createNode('Root');
+        setNodes({ [root.id]: root });
+        setRootNodeId(root.id);
+        setActiveNodeId(root.id);
+      };
+
+      const addChild = (parentId) => {
+        const parent = nodes[parentId];
+        const child = createNode('New Node', parentId, JSON.parse(JSON.stringify(parent.draft)));
+        
+        setNodes({
+          ...nodes,
+          [child.id]: child,
+          [parentId]: {
+            ...parent,
+            childrenIds: [...parent.childrenIds, child.id]
+          }
+        });
+        setActiveNodeId(child.id);
+      };
+
+      const duplicateNode = (nodeId) => {
+        const original = nodes[nodeId];
+        const duplicate = createNode(
+          original.title + ' (copy)',
+          original.parentId,
+          JSON.parse(JSON.stringify(original.draft))
+        );
+
+        const newNodes = { ...nodes, [duplicate.id]: duplicate };
+        
+        if (original.parentId) {
+          const parent = newNodes[original.parentId];
+          newNodes[original.parentId] = {
+            ...parent,
+            childrenIds: [...parent.childrenIds, duplicate.id]
+          };
+        }
+
+        setNodes(newNodes);
+        setActiveNodeId(duplicate.id);
+      };
+
+      const countSubtree = (nodeId) => {
+        let count = 1;
+        const node = nodes[nodeId];
+        node.childrenIds.forEach(childId => {
+          count += countSubtree(childId);
+        });
+        return count;
+      };
+
+      const deleteNode = (nodeId) => {
+        if (nodeId === rootNodeId) {
+          alert('Cannot delete root node');
+          return;
+        }
+
+        const node = nodes[nodeId];
+        const subtreeCount = countSubtree(nodeId);
+
+        if (node.childrenIds.length > 0) {
+          if (!confirm(`This will delete ${subtreeCount} node(s) (this node + descendants). Continue?`)) {
+            return;
+          }
+        }
+
+        const deleteSubtree = (id) => {
+          const n = nodes[id];
+          n.childrenIds.forEach(childId => deleteSubtree(childId));
+          delete nodes[id];
+        };
+
+        const newNodes = { ...nodes };
+        deleteSubtree(nodeId);
+
+        // Remove from parent's children
+        if (node.parentId) {
+          const parent = newNodes[node.parentId];
+          newNodes[node.parentId] = {
+            ...parent,
+            childrenIds: parent.childrenIds.filter(id => id !== nodeId)
+          };
+        }
+
+        setNodes(newNodes);
+        if (activeNodeId === nodeId) {
+          setActiveNodeId(node.parentId || rootNodeId);
+        }
+      };
+
+      const updateNodeTitle = (nodeId, title) => {
+        setNodes({
+          ...nodes,
+          [nodeId]: { ...nodes[nodeId], title }
+        });
+      };
+
+      const toggleNodePreview = (nodeId) => {
+        const node = nodes[nodeId];
+        const newMode = node.previewMode === 'bans' ? 'picks' : 'bans';
+        setNodes({
+          ...nodes,
+          [nodeId]: { ...node, previewMode: newMode }
+        });
+      };
+
+      const updateDraft = (side, type, index, value) => {
+        if (!activeNodeId) return;
+        
+        const node = nodes[activeNodeId];
+        const newDraft = JSON.parse(JSON.stringify(node.draft));
+        newDraft[side][type][index] = value;
+        
+        setNodes({
+          ...nodes,
+          [activeNodeId]: { ...node, draft: newDraft }
+        });
+      };
+
+      const isChampionUsed = (name) => {
+        const node = nodes[activeNodeId];
+        if (!node) return false;
+        const d = node.draft;
+        const all = [...d.blue.picks, ...d.blue.bans, ...d.red.picks, ...d.red.bans];
+        return all.includes(name);
+      };
+
+      const assignChampion = (name, slotOverride = null) => {
+        const slot = slotOverride || selectedSlot;
+        if (!slot) return;
+        if (isChampionUsed(name)) { alert('Champion already used'); return; }
+        updateDraft(slot.side, slot.type, slot.index, name);
+        setSelectedSlot(null);
+        setSelectedChampion(null);
+      };
+
+      const clearSlot = (side, type, index) => {
+        updateDraft(side, type, index, '');
+        setSelectedSlot(null);
+      };
+
+      const handleContextMenu = (e, side, type, index) => {
+        e.preventDefault();
+        clearSlot(side, type, index);
+      };
+
+      const startDrag = (e) => {
+        setIsDragging(true);
+        e.preventDefault();
+      };
+
+      const downloadJSON = () => {
+        const state = { nodes, rootNodeId, activeNodeId };
+        const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'draft-tree.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const loadJSON = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const state = JSON.parse(event.target.result);
+            setNodes(state.nodes);
+            setRootNodeId(state.rootNodeId);
+            setActiveNodeId(state.activeNodeId);
+          } catch (err) {
+            alert('Failed to load file: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      const renderNode = (nodeId, depth = 0) => {
+        const node = nodes[nodeId];
+        if (!node) return null;
+
+        return (
+          <div key={nodeId}>
+            <div style={{ 
+              marginLeft: depth * 20 + 'px',
+              padding: '5px',
+              backgroundColor: activeNodeId === nodeId ? '#e0e0e0' : 'transparent',
+              cursor: 'pointer',
+              marginBottom: '2px'
+            }}>
+              <input
+                type="text"
+                value={node.title}
+                onChange={(e) => updateNodeTitle(nodeId, e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                style={{ marginRight: '10px', width: '150px' }}
+              />
+              <button onClick={() => setActiveNodeId(nodeId)}>View</button>
+              <button onClick={() => addChild(nodeId)}>+ Child</button>
+              <button onClick={() => duplicateNode(nodeId)}>Duplicate</button>
+              <button onClick={() => deleteNode(nodeId)}>Delete</button>
+            </div>
+            {node.childrenIds.map(childId => renderNode(childId, depth + 1))}
+          </div>
+        );
+      };
+
+      const activeNode = activeNodeId ? nodes[activeNodeId] : null;
+
+      return (
+        <div style={{ display: 'flex', height: '100vh', fontFamily: 'monospace' }}>
+          {/* Left Panel - Node Tree */}
+          <div style={{ width: leftWidth + 'px', borderRight: '1px solid #ccc', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '10px', borderBottom: '1px solid #333', background: '#1a1a1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0 }}>Draft Tree</h3>
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <button onClick={() => setViewMode('list')} style={{ background: viewMode==='list'?'#4da3ff':'#333', border:'none', padding:'4px 8px', borderRadius:'4px', color:'white', cursor:'pointer' }}>List</button>
+                <button onClick={() => setViewMode('tree')} style={{ background: viewMode==='tree'?'#4da3ff':'#333', border:'none', padding:'4px 8px', borderRadius:'4px', color:'white', cursor:'pointer' }}>Tree</button>
+              </div>
+            </div>
+            
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              {viewMode === 'list' ? (
+                <div style={{ padding: '10px', height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <button onClick={downloadJSON}>Download JSON</button>
+                    <label style={{ marginLeft: '10px', cursor: 'pointer' }}>
+                      Load JSON
+                      <input type="file" accept=".json" onChange={loadJSON} style={{ display: 'none' }} />
+                    </label>
+                  </div>
+                  {!rootNodeId && <button onClick={createRootNode}>Create Root Node</button>}
+                  {rootNodeId && renderNode(rootNodeId)}
+                </div>
+              ) : (
+                <VisualTree 
+                  nodes={nodes} 
+                  rootNodeId={rootNodeId} 
+                  activeNodeId={activeNodeId} 
+                  setActiveNodeId={setActiveNodeId} 
+                  onAddChild={addChild}
+                  onDuplicate={duplicateNode}
+                  onDelete={deleteNode}
+                  onTitleChange={updateNodeTitle}
+                />
+              )}
+            </div>
+          </div>
+          <div onMouseDown={startDrag} style={{ width:'6px', cursor:'col-resize', background:'#ddd' }}></div>
+
+          {/* Right Panel - Draft Editor */}
+          <div style={{ flex: 1, padding: '10px', overflowY: 'auto' }}>
+            <h3>Draft Editor</h3>
+            {!activeNode && <p>Select a node to edit</p>}
+            {activeNode && (
+              <div>
+                <h4>{activeNode.title}</h4>
+                <div style={{ marginBottom:'10px' }}>
+                  <label style={{ fontSize:'12px', cursor:'pointer', display:'flex', alignItems:'center', gap:'5px', color:'#aaa' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={activeNode.previewMode === 'bans'} 
+                      onChange={() => toggleNodePreview(activeNode.id)} 
+                    />
+                    Show Bans in Tree Preview
+                  </label>
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', margin:'10px 0', fontWeight:'bold' }}>
+                  <div style={{ color:'#4da3ff' }}>BLUE SIDE</div>
+                  <div style={{ color:'#ff6b6b' }}>RED SIDE</div>
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'10px' }}>
+                  <div style={{ background:'#0f0f0f', padding:'6px', borderRadius:'6px', display:'flex', gap:'6px' }}>
+                      {activeNode.draft.blue.bans.map((ban, i) => (
+                        <div key={i} 
+                          onClick={() => selectedChampion ? assignChampion(selectedChampion, { side:'blue', type:'bans', index:i }) : setSelectedSlot({ side:'blue', type:'bans', index:i })}
+                          onContextMenu={(e) => handleContextMenu(e, 'blue', 'bans', i)}
+                          style={{ width:'45px', height:'45px', background:'#222', border:selectedSlot && selectedSlot.side==='blue' && selectedSlot.type==='bans' && selectedSlot.index===i ? '2px solid #4da3ff':'1px solid #333', borderRadius:'4px', overflow:'hidden', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          {ban ? (
+                            <img alt={ban} src={`https://ddragon.leagueoflegends.com/cdn/img/champion/tiles/${ban.replace(' ','')}_0.jpg`} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                          ) : (
+                            <span style={{ color:'#555', fontSize:'12px' }}>B{i+1}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  <div style={{ background:'#0f0f0f', padding:'6px', borderRadius:'6px', display:'flex', gap:'6px' }}>
+                    {activeNode.draft.red.bans.map((ban, i) => (
+                      <div key={i} 
+                        onClick={() => selectedChampion ? assignChampion(selectedChampion, { side:'red', type:'bans', index:i }) : setSelectedSlot({ side:'red', type:'bans', index:i })}
+                        onContextMenu={(e) => handleContextMenu(e, 'red', 'bans', i)}
+                        style={{ width:'45px', height:'45px', background:'#222', border:selectedSlot && selectedSlot.side==='red' && selectedSlot.type==='bans' && selectedSlot.index===i ? '2px solid #ff6b6b':'1px solid #333', borderRadius:'4px', overflow:'hidden', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {ban ? (
+                          <img alt={ban} src={`https://ddragon.leagueoflegends.com/cdn/img/champion/tiles/${ban.replace(' ','')}_0.jpg`} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        ) : (
+                          <span style={{ color:'#555', fontSize:'12px' }}>R{i+1}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns:'auto 1fr auto', gap:'12px', alignItems:'start' }}>
+                  <div style={{ background:'#111', padding:'10px', borderRadius:'6px', display:'grid', gap:'8px', width:'fit-content' }}>
+                    {activeNode.draft.blue.picks.map((pick, i) => (
+                      <div key={i} 
+                        onClick={() => selectedChampion ? assignChampion(selectedChampion, { side:'blue', type:'picks', index:i }) : setSelectedSlot({ side:'blue', type:'picks', index:i })}
+                        onContextMenu={(e) => handleContextMenu(e, 'blue', 'picks', i)}
+                        style={{ width:'80px', height:'80px', background:'#222', border:selectedSlot && selectedSlot.side==='blue' && selectedSlot.type==='picks' && selectedSlot.index===i ? '2px solid #4da3ff':'1px solid #333', borderRadius:'4px', overflow:'hidden', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {pick ? (
+                          <img alt={pick} src={`https://ddragon.leagueoflegends.com/cdn/img/champion/tiles/${pick.replace(' ','')}_0.jpg`} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        ) : (
+                          <span style={{ color:'#888' }}>B{i+1}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ background:'#0f0f0f', padding:'10px', borderRadius:'6px' }}>
+                    <div style={{ display:'flex', gap:'8px', marginBottom:'8px' }}>
+                      <input value={champSearch} onChange={(e) => setChampSearch(e.target.value)} placeholder="Search" style={{ flex:1, padding:'6px', background:'#171717', color:'#ddd', border:'1px solid #333', borderRadius:'4px' }} />
+                    </div>
+                    <div className="no-scrollbar" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(90px, 1fr))', gap:'8px', height:'63vh', overflowY:'auto', overflowX:'hidden' }}>
+                      {champions
+                        .filter(c => c.name.toLowerCase().includes(champSearch.toLowerCase()))
+                        .map(c => {
+                          const isUsed = isChampionUsed(c.key || c.name);
+                          return (
+                            <div key={c.key || c.name} onClick={() => { const name = c.key || c.name; if (selectedSlot) { assignChampion(name); } else { setSelectedChampion(name); } }} style={{ cursor:'pointer', textAlign:'center', opacity: isUsed ? 0.6 : 1 }}>
+                              <div style={{ width:'100%', aspectRatio:'1 / 1', background:'#222', border:selectedChampion === (c.key || c.name) ? '2px solid #4da3ff' : '1px solid #333', borderRadius:'6px', overflow:'hidden' }}>
+                                <img alt={c.name} src={`https://ddragon.leagueoflegends.com/cdn/img/champion/tiles/${(c.key || c.name).replace(' ','')}_0.jpg`} style={{ width:'100%', height:'100%', objectFit:'cover', filter: isUsed ? 'grayscale(100%)' : 'none' }} />
+                              </div>
+                              <div style={{ color: isUsed ? '#666' : '#bbb', fontSize:'10px', marginTop:'4px', whiteSpace:'nowrap', overflow:'hidden' }}>{c.name}</div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  <div style={{ background:'#111', padding:'10px', borderRadius:'6px', display:'grid', gap:'8px', width:'fit-content', justifyItems:'end' }}>
+                    {activeNode.draft.red.picks.map((pick, i) => (
+                      <div key={i} 
+                        onClick={() => selectedChampion ? assignChampion(selectedChampion, { side:'red', type:'picks', index:i }) : setSelectedSlot({ side:'red', type:'picks', index:i })}
+                        onContextMenu={(e) => handleContextMenu(e, 'red', 'picks', i)}
+                        style={{ width:'80px', height:'80px', background:'#222', border:selectedSlot && selectedSlot.side==='red' && selectedSlot.type==='picks' && selectedSlot.index===i ? '2px solid #ff6b6b':'1px solid #333', borderRadius:'4px', overflow:'hidden', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {pick ? (
+                          <img alt={pick} src={`https://ddragon.leagueoflegends.com/cdn/img/champion/tiles/${pick.replace(' ','')}_0.jpg`} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        ) : (
+                          <span style={{ color:'#888' }}>R{i+1}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // Render the app
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<DraftTreeMVP />);
+  </script>
+</body>
+</html>
